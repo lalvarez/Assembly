@@ -1,0 +1,319 @@
+	.data
+		
+		ficheroEntrada: .asciiz "C:\Users\Laura\Music\Fichero\Fichero2.txt" 
+		
+		ficheroSalida: .asciiz "C:\Users\Laura\Music\Fichero\Fichero3.txt"
+		
+		tipo_fichero: .word 0x002			#Fichero tipo lectura-escritura
+			
+		VFicheroE: .space 2048 				#Espacio donde se almacenaran los bytes leidos
+		
+		VFicheroS: .space 2048
+		
+		VNPalabras: .space 1024
+
+		nbytes: .word 0x001
+		
+		Espacio: .byte ' '
+			
+		ExtMax: .word 0x256
+		
+		Longitud: .asciiz "\nLongitud"
+		
+		LongitudMedia: .asciiz "\nLongitud media: "
+		
+		NumeroDePalabras: .asciiz "\nNumero de palabras: "
+		
+		NumeroDeCaracteres: .asciiz "\nNumero de caracteres: "
+		
+		DosPuntos: .asciiz ": "
+	
+		
+
+
+
+	.text
+	.globl main
+	
+	
+	main:
+		
+		#Variables locales
+		
+		li $s1, 0							#Se almacenaran el descriptor del fichero 
+		li $s2, 0 							#Se almacenaran el numero de caracteres de la palabra leida en cada interaccion
+		lbu $s3, Espacio					#Se almacena en s3 el char que corresponde a un espacio (' ') 
+		li $s4, 0 							#Contador de palabras del fichero
+		li $s5,0 							#Contador de caracteres de todo el fichero
+		li $s7,0							#Se almacenaran el descriptor del fichero Salida
+		
+		
+	AperturaFichero:
+		
+		la $a0, ficheroEntrada				#Se almacena la direccion en la cual se encuentra el fichero
+		lw $a1, tipo_fichero				#Cargamos el tipo de fichero 
+		li $v0, 13
+		syscall
+		
+		beq $v0, $zero, FinalLectura		#Si devuelve un 0, la lectura del fichero ha finalizado
+			
+		move $s1, $v0						#Se almacena el descriptor del fichero en una reg. temporal	
+			
+			
+	Lectura:
+		
+		li $t0,0							#Almacena temporalmente el byte (letra de la palabra)
+		li $t1,0 							#Contador para posicionar en el vector VFicheroE
+		li $s2, 0 							#Se almacenaran el numero de caracteres de la palabra leida en cada interaccion
+		
+		#Lectura del primer byte del fichero
+
+		move $a0, $s1						#Se almacena el descriptor del fichero 
+		la $a1, VFicheroE($t1)		        #Se establece  la direccion de inicio donde se guardaran los bytes 
+		lbu $a2, nbytes 					#Se establece el numero de bytes a leer 
+		li $v0, 14							#Codigo de lectura de fichero 
+		syscall								#Si devuelve un 1, la lectura es correcta
+
+		lbu $t0, VFicheroE($t1)
+		
+		#Lector lee palabra a palabra el fichero, una vez leida y almacenada en un vector, el programa realiza una bif a PalabraLeida
+
+	Lector:	
+
+		beq $t0, $s3, PalabraLeida			#Si el byte es un espacio, se sobrentiende que la palabra ha finalizado y procedemos a comparar
+											#En caso contrario continuamos con la lectura de la palabra
+			
+											#Impresion de el caracter actual (No necesario)
+		move $a0, $t0	 					#Se establece el byte a imprimir 
+		li $v0, 11 							#Codigo de llamada para imprimir un tipo char
+		syscall
+
+		add $t1, $t1, 1						#Pasamos a la siguiente posicion de memoria
+		add $s2, $s2, 1						#Aumentamos el contador de caracteres 
+		add $s5, $s5, 1
+		
+		move $a0, $s1						#Se almacena el descriptor del fichero 
+		la $a1, VFicheroE($t1)				#Se establece  la direccion de inicio donde se guardaran los bytes 
+		lbu $a2, nbytes 					#Se establece el numero de bytes a leer 
+		li $v0, 14							#Codigo de lectura de fichero 
+		syscall
+		
+		beq $v0, $zero, PalabraLeidaFinal	#Si devuelve un 0, la lectura del fichero ha finalizado
+		
+		lbu $t0, VFicheroE($t1)				#Se almacena el byte a imprimir para su posterior comparacion
+		
+		b Lector
+
+		
+	PalabraLeida:
+		
+		#En s2 se encuentra almacenado el numero de char de la palabra
+		#Almacenamos el contenido que anteriormente habia en la posicion de la pila correspondiente a esa palabra
+		
+		move $a0, $s3
+		li $v0, 11
+		syscall
+		
+		li $t2,0
+		
+		la $t4, VNPalabras
+		
+		
+		sub $t2, $t4, $s2 					#Se determina la posicion en la pila correspondiente a cada palabra
+		
+		
+		
+		lbu $t3, ($t2)						#Se almacena el numero de palabras con esa longitud que habia anteriormente
+		add $t3, $t3, 1						#Se incrementa
+		
+		sb $t3, ($t2)						#Se actualiza el valor
+		
+		b Lectura
+		
+		
+	PalabraLeidaFinal:
+
+		#En s2 se encuentra almacenado el numero de char de la palabra
+		#Almacenamos el contenido que anteriormente habia en la posicion de la pila correspondiente a esa palabra
+		
+		li $t2,0
+		
+		la $t4, VNPalabras
+		
+		sub $t2, $t4, $s2 					#Se determina la posicion en la pila correspondiente a cada palabra
+		lbu $t3, ($t2)						#Se almacena el numero de palabras con esa longitud que habia anteriormente
+		add $t3, $t3, 1						#Se incrementa
+		
+		sb $t3, ($t2)						#Se actualiza el valor
+		
+		b FinalLectura
+
+		
+	FinalLectura:
+		
+		li $t0, 0
+		li $t1, 0
+		li $t2, 0
+		li $t6, 0
+		
+		la $t4, VNPalabras
+		
+		addu $t0, $t4, -1
+		
+		addu $t1, $t4, -256
+	   
+	   contadorPalabras: 
+		
+			beq $t0, $t1, fin1				#Se recorren cada una de las posiciones de VNPalabras
+			
+			lbu $t2, ($t0)					#Se almacena el contenido 
+											#Paso de parametros a la funcion ImpresionOcurrencia
+			move $a0, $t2					#En $a0 se deja el numero de palabras de esa longitud
+			move $a1, $t0					#En $a1 se deja la direccion donde se encuentra, es decir la informacion de la longitud concreta
+			jal ImpresionOcurrencia
+			add $s4, $s4, $t2
+			addu $t0, $t0, -1
+			b contadorPalabras
+				
+			
+		fin1: 
+			
+			b DeterminarMedia
+	
+	
+		ImpresionOcurrencia:
+			
+			beqz $t2, fin17						#Si no es cero, implica que hay una o mas palabras de esa longitud
+				move $t3, $a0
+				
+				la $t4, VNPalabras 				#(no) x - (x - long )
+				sub $t4, $a1, $t4
+				
+				
+				move $a0, $s3
+				li $v0, 11
+				syscall
+				
+				la $a0, Longitud				#Impresion de una cadena String (Longitud)
+				li $v0, 4
+				syscall
+				lw $t5 ,(Longitud)
+				sw $t5, VFicheroS ($t6)
+				add $t6, $t6, 1
+				
+				move $a0, $t4					#Impresion del entero que contiene la longitud de la palabra
+				li $v0, 1
+				syscall
+				move $t5 ,$t4
+				sw $t5, VFicheroS ($t6)
+				add $t6, $t6, 1
+				
+				la $a0, DosPuntos				#Impresion de una cadena String (:)
+				li $v0, 4
+				syscall
+				lw $t5 ,(DosPuntos)
+				sw $t5, VFicheroS ($t6)
+				add $t6, $t6, 1
+				
+				move $a0, $t3					#Impresion del entero que contiene el numero de palabras de dicha longitud
+				li $v0, 1
+				syscall
+				move $t5 ,$t3
+				sw $t5, VFicheroS ($t6)
+				add $t6, $t6, 1
+				
+				move $a0, $t3					#Se deja el parametro como estaba inicialmente 
+				
+		fin17:
+		
+			jr $ra                           	#volvemos a la funcion anterior
+				
+	
+		
+	DeterminarMedia:
+
+		divu $s5, $s4
+		mflo $s6
+		
+		la $a0, LongitudMedia
+		li $v0, 4
+		syscall
+
+		move $a0, $s6
+		li $v0, 1
+		syscall
+		
+		b fin
+		
+		
+	FicheroSalida:
+
+					#Crear fichero salida
+					la $a0, ficheroSalida
+					li $a1, 0x601
+					li $a2, 0x1FF
+					li $v0, 13
+					syscall
+					
+					move $s7, $v0
+					
+					#Copia los bytes
+					move $a0, $s7
+					la $a1, VFicheroS
+					li $a2, 500
+					li $v0, 15
+					syscall
+
+					jr $ra
+								
+
+	fin:
+		 #PRUEBA IMPRESION DEL NUMERO DE CHAR DE LA CADENA Y DE LA 1 PALABRA DEL FICHERO
+
+		move $a0, $s3
+		li $v0, 11
+		syscall
+		
+		la $a0, NumeroDePalabras
+		li $v0, 4
+		syscall
+					
+		move $a0, $s4
+		li $v0, 1
+		syscall
+		
+		move $a0, $s3
+		li $v0, 11
+		syscall
+		
+		la $a0, NumeroDeCaracteres
+		li $v0, 4
+		syscall
+		
+		move $a0, $s5
+		li $v0, 1
+		syscall
+
+
+		
+		#Se cierra el fichero 
+		move $a0, $s1			#Almacenamiento del fichero a cerrar
+		li $v0, 16			#Codigo de llamada para cerrar fichero
+		syscall
+
+		
+		b Ocurrencias
+		
+	FINALPROGRAMA:
+		
+		#Finalizacion del programa
+		#Se cierra el fichero 
+		
+		move $a0, $s1			#Almacenamiento del fichero a cerrar
+		li $v0, 16			#Codigo de llamada para cerrar fichero
+		syscall
+		
+		li $v0, 10			#Llamada a exit 
+		syscall
+
+
